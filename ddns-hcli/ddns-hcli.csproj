@@ -9,6 +9,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="ddns.conf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Haley.Log" Version="2.0.16.1" />
+    <PackageReference Include="Haley.Rest" Version="2.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="ddns.conf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 </Project>
