@@ -8,7 +8,7 @@ namespace ddns_hcli {
         private readonly ILogger<Worker> _logger;
         const string _cfgFileName = "ddns.conf";
         string _cfgFilePath = string.Empty;
-        JsonNode _cfg = null;
+        List<ZoneInfo> _cfg = new List<ZoneInfo>();
         public Worker(ILogger<Worker> logger) {
             try {
                 //Change logger to Haley logger, so that we can start dumping the logs to a file.
@@ -30,7 +30,8 @@ namespace ddns_hcli {
 
                 if (!File.Exists(_cfgFilePath)) throw new ArgumentException($@"Configuration file {_cfgFileName} doesn't exists. Please add conf file.");
                 var txt = File.ReadAllText(_cfgFilePath);
-               _cfg = JsonNode.Parse(txt);
+                //_cfg = JsonNode.Parse(txt).
+                _cfg = JsonSerializer.Deserialize<ZoneInfo[]>(txt)?.ToList();
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
             }
@@ -42,6 +43,7 @@ namespace ddns_hcli {
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
 
+                //First try to fetch the ip address from external source.
                
 
                 await Task.Delay(5000, stoppingToken); // Check every 5 seconds.
