@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="ddns.conf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Resource>
+    <EmbeddedResource Include="ddns.conf">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>
