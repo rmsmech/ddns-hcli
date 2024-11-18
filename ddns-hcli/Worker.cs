@@ -129,6 +129,7 @@ namespace ddns_hcli {
                     foreach (var zone in _cfgList) {
                         //Take each zone and then fetch it's existing records.
                         var ep = Endpoints.GET_ALL_RECORDS.Replace("@ZONE_ID", zone.Id);
+                        _logger.LogInformation($@"Initiating process for Zone : {zone.Id}");
                         var allrecords = (await (await _client
                             .WithEndPoint(ep)
                             .DoNotAuthenticate()
@@ -175,8 +176,9 @@ namespace ddns_hcli {
                         });
                     }
 
+                    _logger.LogInformation("Process completed. Sleeping..");
                     //Loop through the 
-                    await Task.Delay(120000, stoppingToken); // Check every 2 minutes
+                    await Task.Delay(1000, stoppingToken); // Check every 2 minutes
                 }
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
