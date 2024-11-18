@@ -18,10 +18,11 @@ namespace ddns_hcli {
         List<IpFinder> _ipfList = new List<IpFinder>();
         int _ipfIndex = 0;
         int _ipfCount = 0;
+        int _sleepTime = 1000; //1 second.
         FluentClient _client = new FluentClient();
 
         int continuousErrorCount = 0;
-        public Worker(ILogger<Worker> logger) {
+        public Worker(ILogger<Worker> logger, IConfiguration config) {
             try {
                 //Change logger to Haley logger, so that we can start dumping the logs to a file.
                 _logger = logger;
@@ -59,6 +60,8 @@ namespace ddns_hcli {
                 _ipfList = JsonSerializer.Deserialize<IpFinder[]>(File.ReadAllText(_ipfFilePath))?.ToList();
                 _ipfCount = _ipfList?.Count ?? 0; //total list of IPF
                 _cfgList.ForEach(p => p.ParseRecords()); //to fetch the records as an array.
+
+                _sleepTime =  (config.GetValue<int>("WorkerSleepTime"))*1000;
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
             }
@@ -176,9 +179,9 @@ namespace ddns_hcli {
                         });
                     }
 
-                    _logger.LogInformation("Process completed. Sleeping..");
+                    _logger.LogInformation($@"Process completed. Sleeping for {_sleepTime/1000} seconds..");
                     //Loop through the 
-                    await Task.Delay(1000, stoppingToken); // Check every 2 minutes
+                    await Task.Delay(_sleepTime, stoppingToken); // Check every 2 minutes
                 }
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
