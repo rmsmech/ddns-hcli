@@ -3,6 +3,9 @@ using System.Reflection;
 using System.Text.Json;
 using Haley.Rest;
 using Haley.Models;
+using System.Net;
+using Haley.Abstractions;
+using System.Text.Json.Nodes;
 
 namespace ddns_hcli {
     public class Worker : BackgroundService {
@@ -55,9 +58,60 @@ namespace ddns_hcli {
                 _cfgList = JsonSerializer.Deserialize<ZoneInfo[]>(File.ReadAllText(_cfgFilePath))?.ToList();
                 _ipfList = JsonSerializer.Deserialize<IpFinder[]>(File.ReadAllText(_ipfFilePath))?.ToList();
                 _ipfCount = _ipfList?.Count ?? 0; //total list of IPF
+                _cfgList.ForEach(p => p.ParseRecords()); //to fetch the records as an array.
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
             }
+        }
+
+        async Task<(bool status,string ipaddr)> GetIpAddress() {
+            //First try to fetch the ip address from external source.
+            int currentIndex = _ipfIndex; //Let us start from ipfIndex
+            int searchCount = 0;
+
+            //01 - Verify cooling period
+            while (true) {
+                //Check if we have completed one whole rotation
+                if (searchCount >= _ipfCount) {
+                    _logger.LogInformation("No IPF has cooled down. Waiting for 30 seconds before checking again.");
+                    await Task.Delay(30000); // Wait for 30 seconds before checking cooling period. 
+                    //Reset
+                    searchCount = 0; 
+                    currentIndex = _ipfIndex;
+                }
+
+                //Adjust the current Index within the range
+                if (currentIndex > (_ipfCount - 1) || currentIndex < 0) currentIndex = 0;
+                var currentIpf = _ipfList[currentIndex];
+                if ((DateTime.UtcNow - currentIpf.LastUsed).TotalSeconds > currentIpf.CoolingTime) {
+                    _ipfIndex = currentIndex;
+                    break;
+                }
+                //
+                currentIndex++;
+                searchCount++;
+            }
+
+            var ipf = _ipfList[_ipfIndex];
+            ipf.LastUsed = DateTime.UtcNow;
+
+            string ipaddr = string.Empty;
+            try {
+                ipaddr = (await (await _client.WithEndPoint(ipf.URL).GetAsync()).AsStringResponseAsync()).ToString().Trim();
+            } catch (Exception) {
+                _ipfIndex++; //Move to next ip finder incase previous had error.
+                ipf.ErrorCount++; //So we can track which IP Finder has continous error and report that to be removed.
+                continuousErrorCount++; //For some reason, if we have continous error for sometime, we should not proceed with application at all. .may be internet connection is down..
+                if (continuousErrorCount > 10) {
+                    _logger.LogInformation("Continuous error for more than 10 times. Taking a break of 15 mintues");
+                    await Task.Delay(900000); // Wait for 15 minutes, may be internet is down.
+                    continuousErrorCount = 0; //Reset the error count.
+                }
+                return (false, ipaddr);
+            }
+            _ipfIndex++; //Move to next ip finder.
+            _logger.LogInformation($@"Ip address found : {ipaddr} using {ipf.URL.Trim()}");
+            return (true, ipaddr);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
@@ -67,25 +121,62 @@ namespace ddns_hcli {
                         _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                     }
 
-                    //First try to fetch the ip address from external source.
-                    if (_ipfIndex > (_ipfCount - 1) || _ipfIndex < 0) _ipfIndex = 0;
-                    var ipf = _ipfList[_ipfIndex];
-                    string ipaddr = string.Empty;
-                    try {
-                        ipaddr = (await (await _client.WithEndPoint(ipf.URL).GetAsync()).AsStringResponseAsync()).ToString();
-                    } catch (Exception) {
-                        _ipfIndex++; //Move to next ip finder incase previous had error.
-                        ipf.ErrorCount++; //So we can track which IP Finder has continous error and report that to be removed.
-                        continuousErrorCount++; //For some reason, if we have continous error for sometime, we should not proceed with application at all. .may be internet connection is down..
-                        if (continuousErrorCount > 10) {
-                            _logger.LogInformation("Continuous error for more than 10 times. Taking a break of 15 mintues");
-                            await Task.Delay(900000, stoppingToken); // Wait for 15 minutes, may be internet is down.
-                            continuousErrorCount = 0; //Reset the error count.
-                        }
-                        continue;
+                    var ipTup = await GetIpAddress();
+                    if (!ipTup.status) continue; //Get the ip address
+                    //var newip = "46.66.80.12";
+                    var newip = ipTup.ipaddr;
+
+                    foreach (var zone in _cfgList) {
+                        //Take each zone and then fetch it's existing records.
+                        var ep = Endpoints.GET_ALL_RECORDS.Replace("@ZONE_ID", zone.Id);
+                        var allrecords = (await (await _client
+                            .WithEndPoint(ep)
+                            .DoNotAuthenticate()
+                            .AddHeader("Authorization", $@"Bearer {zone.Token}") //Add header to the request and not to the client
+                            .GetAsync())
+                            .AsStringResponseAsync()).ToString().Trim();
+                        var allrecordsJSON = JsonNode.Parse(allrecords);
+                        if (!(allrecordsJSON?["success"]?.GetValue<bool>() ?? false)) continue;
+                        if (!(allrecordsJSON!["result"] is JsonArray recArr)) continue;
+                        var targetRecords = recArr
+                            .Where(p => (p["type"] != null &&
+                        p["type"]!.GetValue<string>().Equals("a", StringComparison.InvariantCultureIgnoreCase))
+                        && zone.RecordsArray.Contains(p["name"]?.GetValue<string>()))?
+                        .Select(q => new { 
+                            id = q["id"]?.GetValue<string>(), 
+                            content = q["content"]?.GetValue<string>(), 
+                            name = q["name"]?.GetValue<string>(),
+                            proxied = q["proxied"]?.GetValue<bool>() ?? true,
+                            ttl = q["ttl"]?.GetValue<int>() ?? 1
+                        })
+                        .ToList();
+
+                        if (targetRecords == null ||  targetRecords.Count < 1) continue; //To next configuration.
+                       
+                        await Parallel.ForEachAsync(targetRecords, async (rec, token) => {
+                            do {
+                                if (rec == null) break;
+                                if (rec!.content.Equals(newip, StringComparison.OrdinalIgnoreCase)) {
+                                    _logger.LogWarning($"NO UPDATE: For the DNS record {rec.name} (proxied:{rec.proxied}), the ip address {rec.content} has not changed.");
+                                    break;
+                                }
+                                var dnsrec = new DNSRecordInfo() { Name = rec.name, TTL = rec.ttl, Proxied = rec.proxied, Content = newip };
+                                //For each item, update the ip address
+                                var patchEP = Endpoints.UPDATE_RECORD.Replace("@ZONE_ID", zone.Id).Replace("@RECORD_ID", rec.id);
+                                var patchResp = await _client
+                                .WithEndPoint(patchEP)
+                                .WithBody(dnsrec.ToJson(), true, Haley.Enums.BodyContentType.StringContent)
+                                .DoNotAuthenticate()
+                                .AddHeader("Authorization", $@"Bearer {zone.Token}") //Add header to the request and not to the client
+                                .PutAsync();
+                                var pathRespResult = await patchResp.AsStringResponseAsync();
+                                _logger.LogInformation($@"The record {rec.name} (proxied:{rec.proxied}) is updated with ip {newip}");
+                            } while (false); //Do once
+                        });
                     }
-                    _ipfIndex++; //Move to next ip finder.
-                    await Task.Delay(2000, stoppingToken); // Check every 2 minutes
+
+                    //Loop through the 
+                    await Task.Delay(120000, stoppingToken); // Check every 2 minutes
                 }
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);

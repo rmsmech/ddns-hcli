@@ -14,5 +14,9 @@ namespace ddns_hcli {
         [JsonPropertyName("records")]
         public string RecordsRaw { get; set; }
         internal string[] RecordsArray { get; set; }
+        internal void ParseRecords() {
+            if (string.IsNullOrWhiteSpace(RecordsRaw)) return;
+            RecordsArray = RecordsRaw.Split(new char[] { ',' }); //Comma separated.
+        }
     }
 }

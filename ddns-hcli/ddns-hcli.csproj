@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <PackageReference Include="Haley.Log" Version="2.0.16.1" />
-    <PackageReference Include="Haley.Rest" Version="2.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
   </ItemGroup>
 
@@ -26,5 +25,9 @@
     <EmbeddedResource Include="ddns.conf">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\HaleyProject\HaleyRest\HaleyRest\HaleyRest.csproj" />
   </ItemGroup>
 </Project>
