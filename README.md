@@ -1,3 +1,10 @@
+DDNS Hclient (Haley Client) is mainly used for updating the IP information in the DNS records of the webdomain managed in different domain service providers.
+
+Current list of Service providers API handled are as below
+
+1. CloudFlare API (Only update the existing DNS records with new IP address)
+2. IN Progress
+
 # Pre requisite 
 **dotnet-sdk-8.0** is required to run this application. Install the package using `yum` or `dnf` or `apt-get`.
 
