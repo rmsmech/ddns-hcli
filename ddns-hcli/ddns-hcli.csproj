@@ -40,4 +40,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\HaleyProject\HaleyRest\HaleyRest\HaleyRest.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ddns-hcli.service">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
