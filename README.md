@@ -25,7 +25,12 @@ Above command will unzip the zip file into a folder called src. If you wish to e
 
 _Install unzip, if not available_
 
-# 04 : Create a file called "ddns.conf" with below information
+# 04 : Create Config Files.
+
+This step can be done after Step 05 (incase you wish to export the default configs to the folders).
+
+**Create a file called "ddns.conf" with below information**.
+
 Obtain zone-id , token from your cloudflare account and add them. Add all the records (A type only supported) for which the ip address has to be updated.
 
 ```JSON
@@ -45,8 +50,12 @@ Obtain zone-id , token from your cloudflare account and add them. Add all the re
 # 05 : _(Optional)_ Test the application
 If all the steps are done correctly, at this point, you will be able to run below command to initiate the application and see the results in the terminal.
 
-`dotnet ddns-hcli.dll`
+`dotnet ddns-hcli.dll -v`
+
+-v enables verbose mode, so that the log is printed on the terminal directly.
 
 If the application runs and you are able to see the updates in terminal, go ahead to next step.
 
 # 06 : Create a sysmtemd service
+
+Create a systemd service to ensure that the application runs on startup.
