@@ -1,4 +1,4 @@
-DDNS Hclient (Haley Client) is mainly used for updating the IP information in the DNS records of the webdomain managed in different domain service providers.
+ddns-hcli (Haley DDNS Client) is mainly used for updating the IP information in the DNS records of the webdomain managed in different domain service providers.
 
 Current list of Service providers API handled are as below
 
