@@ -9,9 +9,10 @@ using System.Text.Json.Nodes;
 
 namespace ddns_hcli {
     public class Worker : BackgroundService {
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger _logger;
         const string _cfgFileName = "ddns.conf";
         const string _ipfFileName = "ipfinder.conf";
+        string _cfgDirectory = string.Empty;
         string _cfgFilePath = string.Empty;
         string _ipfFilePath = string.Empty;
         List<ZoneInfo> _cfgList = new List<ZoneInfo>();
@@ -22,18 +23,31 @@ namespace ddns_hcli {
         FluentClient _client = new FluentClient();
 
         int continuousErrorCount = 0;
-        public Worker(ILogger<Worker> logger, IConfiguration config) {
+        public Worker(ILoggerProvider provider, IConfigurationRoot cfgRoot) {
             try {
                 //Change logger to Haley logger, so that we can start dumping the logs to a file.
-                _logger = logger;
+                _logger = provider.CreateLogger("Worker");
+                //_sleepTime = (config.GetValue<int>("WorkerSleepTime")) * 1000;
+                //_cfgDirectory = config.GetValue<string>("CfgDirectory");
+
+                _sleepTime = (cfgRoot.GetSection("WorkerSleepTime").Get<int>()) * 1000;
+                _cfgDirectory = cfgRoot.GetSection("CfgDirectory")?.Get<string>();
+
+                if (string.IsNullOrWhiteSpace(_cfgDirectory)) {
+                    _cfgDirectory = Path.GetDirectoryName(AssemblyUtils.GetBaseDirectory());
+
+                    if (string.IsNullOrWhiteSpace(_cfgDirectory)) _cfgDirectory = AssemblyUtils.GetBaseDirectory();
+                }
+
+                if (!Directory.Exists(_cfgDirectory)) Directory.CreateDirectory(_cfgDirectory);
                 //Should we even expect the config also to be present in same folder as the main application? What if the user deletes some main dll by mistake???
                 //TODO: Change the location of the conf file to some other location.
-                _cfgFilePath = Path.Combine(AssemblyUtils.GetBaseDirectory(), _cfgFileName); //to optimize later
-                _ipfFilePath = Path.Combine(AssemblyUtils.GetBaseDirectory(), _ipfFileName);
-                _logger.LogInformation("Configration Search path " + _cfgFilePath);
+                _cfgFilePath = Path.Combine(_cfgDirectory, _cfgFileName); //to optimize later
+                _ipfFilePath = Path.Combine(_cfgDirectory, _ipfFileName);
+                _logger?.LogInformation("Configration Search path " + _cfgFilePath);
                 if (!File.Exists(_cfgFilePath)) {
                     //Then try to export the file from embedded data.
-                    _logger.LogInformation("Configuration doesn't exists. Exporting the default file.");
+                    _logger?.LogInformation("Configuration doesn't exists. Exporting the default file.");
                     //var names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
                     var res = ResourceUtils.GetEmbeddedResource($@"ddns_hcli.{_cfgFileName}", Assembly.GetExecutingAssembly());
                     using (var fs = new FileStream(_cfgFilePath, FileMode.Create)) {
@@ -44,7 +58,7 @@ namespace ddns_hcli {
 
                 if (!File.Exists(_ipfFilePath)) {
                     //Then try to export the file from embedded data.
-                    _logger.LogInformation("Configuration doesn't exists. Exporting the default file.");
+                    _logger?.LogInformation("Configuration doesn't exists. Exporting the default file.");
                     //var names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
                     var res = ResourceUtils.GetEmbeddedResource($@"ddns_hcli.{_ipfFileName}", Assembly.GetExecutingAssembly());
                     using (var fs = new FileStream(_ipfFilePath, FileMode.Create)) {
@@ -61,7 +75,7 @@ namespace ddns_hcli {
                 _ipfCount = _ipfList?.Count ?? 0; //total list of IPF
                 _cfgList.ForEach(p => p.ParseRecords()); //to fetch the records as an array.
 
-                _sleepTime =  (config.GetValue<int>("WorkerSleepTime"))*1000;
+                
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
             }
@@ -76,7 +90,7 @@ namespace ddns_hcli {
             while (true) {
                 //Check if we have completed one whole rotation
                 if (searchCount >= _ipfCount) {
-                    _logger.LogInformation("No IPF has cooled down. Waiting for 30 seconds before checking again.");
+                    _logger?.LogInformation("No IPF has cooled down. Waiting for 30 seconds before checking again.");
                     await Task.Delay(30000); // Wait for 30 seconds before checking cooling period. 
                     //Reset
                     searchCount = 0; 
@@ -106,22 +120,22 @@ namespace ddns_hcli {
                 ipf.ErrorCount++; //So we can track which IP Finder has continous error and report that to be removed.
                 continuousErrorCount++; //For some reason, if we have continous error for sometime, we should not proceed with application at all. .may be internet connection is down..
                 if (continuousErrorCount > 10) {
-                    _logger.LogInformation("Continuous error for more than 10 times. Taking a break of 15 mintues");
+                    _logger?.LogInformation("Continuous error for more than 10 times. Taking a break of 15 mintues");
                     await Task.Delay(900000); // Wait for 15 minutes, may be internet is down.
                     continuousErrorCount = 0; //Reset the error count.
                 }
                 return (false, ipaddr);
             }
             _ipfIndex++; //Move to next ip finder.
-            _logger.LogInformation($@"Ip address found : {ipaddr} using {ipf.URL.Trim()}");
+            _logger?.LogInformation($@"Ip address found : {ipaddr} using {ipf.URL.Trim()}");
             return (true, ipaddr);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
             try {
                 while (!stoppingToken.IsCancellationRequested) {
-                    if (_logger.IsEnabled(LogLevel.Information)) {
-                        _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                    if (_logger != null && _logger.IsEnabled(LogLevel.Information)) {
+                        _logger?.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                     }
 
                     var ipTup = await GetIpAddress();
@@ -132,7 +146,7 @@ namespace ddns_hcli {
                     foreach (var zone in _cfgList) {
                         //Take each zone and then fetch it's existing records.
                         var ep = Endpoints.GET_ALL_RECORDS.Replace("@ZONE_ID", zone.Id);
-                        _logger.LogInformation($@"Initiating process for Zone : {zone.Id}");
+                        _logger?.LogInformation($@"Initiating process for Zone : {zone.Id}");
                         var allrecords = (await (await _client
                             .WithEndPoint(ep)
                             .DoNotAuthenticate()
@@ -140,8 +154,14 @@ namespace ddns_hcli {
                             .GetAsync())
                             .AsStringResponseAsync()).ToString().Trim();
                         var allrecordsJSON = JsonNode.Parse(allrecords);
-                        if (!(allrecordsJSON?["success"]?.GetValue<bool>() ?? false)) continue;
-                        if (!(allrecordsJSON!["result"] is JsonArray recArr)) continue;
+                        if (!(allrecordsJSON?["success"]?.GetValue<bool>() ?? false)) {
+                            _logger?.LogInformation($@"Unable to fetch Cloudflare Zone information");
+                            continue;
+                        }
+                        if (!(allrecordsJSON!["result"] is JsonArray recArr)) {
+                            _logger?.LogInformation($@"Cloudflare Zone returned zero results");
+                            continue;
+                        }
                         var targetRecords = recArr
                             .Where(p => (p["type"] != null &&
                         p["type"]!.GetValue<string>().Equals("a", StringComparison.InvariantCultureIgnoreCase))
@@ -155,13 +175,16 @@ namespace ddns_hcli {
                         })
                         .ToList();
 
-                        if (targetRecords == null ||  targetRecords.Count < 1) continue; //To next configuration.
+                        if (targetRecords == null || targetRecords.Count < 1) {
+                            _logger?.LogInformation($@"No matching DNS -A- records found for the given filters.");
+                            continue; //To next configuration.
+                        }
                        
                         await Parallel.ForEachAsync(targetRecords, async (rec, token) => {
                             do {
                                 if (rec == null) break;
                                 if (rec!.content.Equals(newip, StringComparison.OrdinalIgnoreCase)) {
-                                    _logger.LogWarning($"NO UPDATE: For the DNS record {rec.name} (proxied:{rec.proxied}), the ip address {rec.content} has not changed.");
+                                    _logger?.LogWarning($"NO UPDATE: For the DNS record {rec.name} (proxied:{rec.proxied}), the ip address {rec.content} has not changed.");
                                     break;
                                 }
                                 var dnsrec = new DNSRecordInfo() { Name = rec.name, TTL = rec.ttl, Proxied = rec.proxied, Content = newip };
@@ -174,12 +197,12 @@ namespace ddns_hcli {
                                 .AddHeader("Authorization", $@"Bearer {zone.Token}") //Add header to the request and not to the client
                                 .PutAsync();
                                 var pathRespResult = await patchResp.AsStringResponseAsync();
-                                _logger.LogInformation($@"The record {rec.name} (proxied:{rec.proxied}) is updated with ip {newip}");
+                                _logger?.LogInformation($@"The record {rec.name} (proxied:{rec.proxied}) is updated with ip {newip}");
                             } while (false); //Do once
                         });
                     }
 
-                    _logger.LogInformation($@"Process completed. Sleeping for {_sleepTime/1000} seconds..");
+                    _logger?.LogInformation($@"Process completed. Sleeping for {_sleepTime/1000} seconds..");
                     //Loop through the 
                     await Task.Delay(_sleepTime, stoppingToken); // Check every 2 minutes
                 }
