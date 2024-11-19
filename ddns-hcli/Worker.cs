@@ -116,18 +116,19 @@ namespace ddns_hcli {
             }
 
             var ipf = _ipfList[_ipfIndex];
-            ipf.LastUsed = DateTime.UtcNow;
 
             string ipaddr = string.Empty;
             try {
                 ipaddr = (await (await _client.WithEndPoint(ipf.URL).GetAsync()).AsStringResponseAsync()).ToString().Trim();
-            } catch (Exception) {
+                ipf.LastUsed = DateTime.UtcNow; //If failed, we don't care
+            } catch (Exception ex) {
+                _logger?.LogError($@"IP Finder {ipf.URL} has ended with error {ex.Message}");
                 _ipfIndex++; //Move to next ip finder incase previous had error.
                 ipf.ErrorCount++; //So we can track which IP Finder has continous error and report that to be removed.
                 continuousErrorCount++; //For some reason, if we have continous error for sometime, we should not proceed with application at all. .may be internet connection is down..
                 if (continuousErrorCount > 10) {
-                    _logger?.LogInformation("Continuous error for more than 10 times. Taking a break of 15 mintues");
-                    await Task.Delay(900000); // Wait for 15 minutes, may be internet is down.
+                    _logger?.LogInformation("Continuous error for more than 10 times. Taking a break of 3 mintues");
+                    await Task.Delay(180000); // Wait for 3 minutes, may be internet is down.
                     continuousErrorCount = 0; //Reset the error count.
                 }
                 return (false, ipaddr);
