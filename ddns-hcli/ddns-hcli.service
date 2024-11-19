@@ -5,7 +5,7 @@ Description= DDNS Client for Updating the WAN IP Information in Cloudflare DNS r
 WorkingDirectory=/usr/lib/ddns-hcli/src/
 Restart=always
 RestartSec=10 #delayed start
-ExecStart=/usr/bin/dotnet /usr/lib/ddns-hcli-src/ddns-hcli.dll
+ExecStart=/usr/bin/dotnet /usr/lib/ddns-hcli/src/ddns-hcli.dll
 
 [Install]
 WantedBy=multi-user.target
