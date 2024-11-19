@@ -12,9 +12,10 @@ if (!args.Contains("-v", StringComparer.OrdinalIgnoreCase)) {
     var logdir = cfg.GetSection("LogDirectory")?.Get<string>();
     if (string.IsNullOrWhiteSpace(logdir)) {
         logdir = null;
+    } else {
+        if (!Directory.Exists(logdir)) Directory.CreateDirectory(logdir);
     }
-
-    if (!Directory.Exists(logdir)) Directory.CreateDirectory(logdir);
+  
     //Clear other providers first.
     builder.Logging.ClearProviders(); //Don't log to console
     builder.Logging.AddHaleyFileLogger((o) => { o.OutputDirectory = logdir; });

@@ -6,6 +6,7 @@ using Haley.Models;
 using System.Net;
 using Haley.Abstractions;
 using System.Text.Json.Nodes;
+using Haley.Log;
 
 namespace ddns_hcli {
     public class Worker : BackgroundService {
@@ -23,10 +24,15 @@ namespace ddns_hcli {
         FluentClient _client = new FluentClient();
 
         int continuousErrorCount = 0;
-        public Worker(ILoggerProvider provider, IConfigurationRoot cfgRoot) {
+        public Worker(ILogger<Worker> logger, ILoggerProvider provider, IConfigurationRoot cfgRoot) {
             try {
                 //Change logger to Haley logger, so that we can start dumping the logs to a file.
-                _logger = provider.CreateLogger("Worker");
+                if (provider != null && provider is FileLogProvider) {
+                    _logger = provider.CreateLogger("DDNS Worker");
+                } else {
+                    _logger = logger;
+                }
+                _logger?.LogInformation("Initializing..");
                 //_sleepTime = (config.GetValue<int>("WorkerSleepTime")) * 1000;
                 //_cfgDirectory = config.GetValue<string>("CfgDirectory");
 
@@ -74,8 +80,8 @@ namespace ddns_hcli {
                 _ipfList = JsonSerializer.Deserialize<IpFinder[]>(File.ReadAllText(_ipfFilePath))?.ToList();
                 _ipfCount = _ipfList?.Count ?? 0; //total list of IPF
                 _cfgList.ForEach(p => p.ParseRecords()); //to fetch the records as an array.
+                _logger?.LogInformation("Initialization Complete");
 
-                
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
             }
@@ -85,7 +91,7 @@ namespace ddns_hcli {
             //First try to fetch the ip address from external source.
             int currentIndex = _ipfIndex; //Let us start from ipfIndex
             int searchCount = 0;
-
+            _logger?.LogInformation("Fetching IP Address");
             //01 - Verify cooling period
             while (true) {
                 //Check if we have completed one whole rotation
@@ -134,9 +140,7 @@ namespace ddns_hcli {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
             try {
                 while (!stoppingToken.IsCancellationRequested) {
-                    if (_logger != null && _logger.IsEnabled(LogLevel.Information)) {
-                        _logger?.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                    }
+                    _logger?.LogInformation("Worker Started at: {time}", DateTimeOffset.Now);
 
                     var ipTup = await GetIpAddress();
                     if (!ipTup.status) continue; //Get the ip address
