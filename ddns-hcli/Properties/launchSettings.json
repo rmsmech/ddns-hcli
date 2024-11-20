@@ -2,7 +2,6 @@
   "profiles": {
     "ddns_hcli": {
       "commandName": "Project",
-      "commandLineArgs": "-v\r\n",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       },
