@@ -7,6 +7,8 @@ using System.Net;
 using Haley.Abstractions;
 using System.Text.Json.Nodes;
 using Haley.Log;
+using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace ddns_hcli {
     public class Worker : BackgroundService {
@@ -22,16 +24,23 @@ namespace ddns_hcli {
         int _ipfCount = 0;
         int _sleepTime = 1000; //1 second.
         FluentClient _client = new FluentClient();
-
         int continuousErrorCount = 0;
+
+        Regex _ipv4Regex = new Regex(@"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$");
+
         public Worker(ILogger<Worker> logger, ILoggerProvider provider, IConfigurationRoot cfgRoot) {
+            //Change logger to Haley logger, so that we can start dumping the logs to a file.
+            if (provider != null && provider is FileLogProvider) {
+                _logger = provider.CreateLogger("DDNS Worker");
+            } else {
+                _logger = logger;
+            }
+
+            Initialize(cfgRoot);
+        }
+
+        void Initialize(IConfigurationRoot cfgRoot) {
             try {
-                //Change logger to Haley logger, so that we can start dumping the logs to a file.
-                if (provider != null && provider is FileLogProvider) {
-                    _logger = provider.CreateLogger("DDNS Worker");
-                } else {
-                    _logger = logger;
-                }
                 _logger?.LogInformation("Initializing..");
                 //_sleepTime = (config.GetValue<int>("WorkerSleepTime")) * 1000;
                 //_cfgDirectory = config.GetValue<string>("CfgDirectory");
@@ -84,6 +93,7 @@ namespace ddns_hcli {
 
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
+                throw; //If it is not initialized, do not even proceed.
             }
         }
 
@@ -91,9 +101,10 @@ namespace ddns_hcli {
             //First try to fetch the ip address from external source.
             int currentIndex = _ipfIndex; //Let us start from ipfIndex
             int searchCount = 0;
-            _logger?.LogInformation("Fetching IP Address");
+            _logger?.LogInformation("Selecting an Ip Finder");
             //01 - Verify cooling period
             while (true) {
+                //Clear cache.
                 //Check if we have completed one whole rotation
                 if (searchCount >= _ipfCount) {
                     _logger?.LogInformation("No IPF has cooled down. Waiting for 30 seconds before checking again.");
@@ -107,7 +118,7 @@ namespace ddns_hcli {
                 if (currentIndex > (_ipfCount - 1) || currentIndex < 0) currentIndex = 0;
                 var currentIpf = _ipfList[currentIndex];
                 if ((DateTime.UtcNow - currentIpf.LastUsed).TotalSeconds > currentIpf.CoolingTime) {
-                    _ipfIndex = currentIndex;
+                    _ipfIndex = currentIndex; //IPF Index updated.
                     break;
                 }
                 //
@@ -116,11 +127,26 @@ namespace ddns_hcli {
             }
 
             var ipf = _ipfList[_ipfIndex];
-
-            string ipaddr = string.Empty;
+            _logger?.LogInformation($@"IP Finder finalized : {ipf.URL}");
+            string ipaddr = string.Empty; //LOCAL VARIABLE
             try {
-                ipaddr = (await (await _client.WithEndPoint(ipf.URL).GetAsync()).AsStringResponseAsync()).ToString().Trim();
-                ipf.LastUsed = DateTime.UtcNow; //If failed, we don't care
+                _logger?.LogInformation("IP Fetching initialized.");
+                var strResponse = await (await _client.WithEndPoint(ipf.URL).GetAsync()).AsStringResponseAsync();
+                ipf.LastUsed = DateTime.UtcNow; //Whether it fails or not, once a finder is used, we wait for cooling time.
+                if (strResponse.IsSuccessStatusCode) {
+                    ipaddr = strResponse.ToString().Trim();
+                    //If the received ip address is not in the format of a ipv4, then we make it empty.
+                    if (!_ipv4Regex.IsMatch(ipaddr)) ipaddr = string.Empty;
+                } else {
+                    _logger?.LogError($@"IP request failed. {strResponse.ToString().Trim()}");
+                }
+
+                //We now check if the ip addrress is empty or not.
+                if (string.IsNullOrWhiteSpace(ipaddr)) {
+                    _ipfIndex++; //Move to next index and start again.
+                    return await GetIpAddress();
+                }
+
             } catch (Exception ex) {
                 _logger?.LogError($@"IP Finder {ipf.URL} has ended with error {ex.Message}");
                 _ipfIndex++; //Move to next ip finder incase previous had error.
@@ -131,7 +157,7 @@ namespace ddns_hcli {
                     await Task.Delay(180000); // Wait for 3 minutes, may be internet is down.
                     continuousErrorCount = 0; //Reset the error count.
                 }
-                return (false, ipaddr);
+                return (false, string.Empty);
             }
             _ipfIndex++; //Move to next ip finder.
             _logger?.LogInformation($@"Ip address found : {ipaddr} using {ipf.URL.Trim()}");
@@ -139,15 +165,18 @@ namespace ddns_hcli {
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-            try {
-                while (!stoppingToken.IsCancellationRequested) {
+            while (!stoppingToken.IsCancellationRequested) {
+                try {
                     _logger?.LogInformation("Worker Started at: {time}", DateTimeOffset.Now);
 
                     var ipTup = await GetIpAddress();
                     if (!ipTup.status) continue; //Get the ip address
-                    //var newip = "46.66.80.12";
+                                                 //var newip = "46.66.80.12";
                     var newip = ipTup.ipaddr;
-
+                    if (!_ipv4Regex.IsMatch(newip)) {
+                        _logger?.LogInformation("Ip address is not in proper ipv4 format");
+                        continue;
+                    }
                     foreach (var zone in _cfgList) {
                         //Take each zone and then fetch it's existing records.
                         var ep = Endpoints.GET_ALL_RECORDS.Replace("@ZONE_ID", zone.Id);
@@ -171,9 +200,9 @@ namespace ddns_hcli {
                             .Where(p => (p["type"] != null &&
                         p["type"]!.GetValue<string>().Equals("a", StringComparison.InvariantCultureIgnoreCase))
                         && zone.RecordsArray.Contains(p["name"]?.GetValue<string>()))?
-                        .Select(q => new { 
-                            id = q["id"]?.GetValue<string>(), 
-                            content = q["content"]?.GetValue<string>(), 
+                        .Select(q => new {
+                            id = q["id"]?.GetValue<string>(),
+                            content = q["content"]?.GetValue<string>(),
                             name = q["name"]?.GetValue<string>(),
                             proxied = q["proxied"]?.GetValue<bool>() ?? true,
                             ttl = q["ttl"]?.GetValue<int>() ?? 1
@@ -184,7 +213,7 @@ namespace ddns_hcli {
                             _logger?.LogInformation($@"No matching DNS -A- records found for the given filters.");
                             continue; //To next configuration.
                         }
-                       
+
                         await Parallel.ForEachAsync(targetRecords, async (rec, token) => {
                             do {
                                 if (rec == null) break;
@@ -207,12 +236,14 @@ namespace ddns_hcli {
                         });
                     }
 
-                    _logger?.LogInformation($@"Process completed. Sleeping for {_sleepTime/1000} seconds..");
+                    _logger?.LogInformation($@"Process completed. Sleeping for {_sleepTime / 1000} seconds..");
                     //Loop through the 
                     await Task.Delay(_sleepTime, stoppingToken); // Check every 2 minutes
+                } catch (Exception ex) {
+                    _logger?.LogError(ex.Message);
+                    _client = new FluentClient(); //May be error is because of client. So let us reset the client.
+                    await Task.Delay(_sleepTime, stoppingToken);
                 }
-            } catch (Exception ex) {
-                _logger?.LogError(ex.Message);
             }
         }
     }
