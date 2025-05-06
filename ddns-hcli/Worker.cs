@@ -49,7 +49,7 @@ namespace hdns {
                 _cfgDirectory = Globals.CfgDirectory;
 
                 if (string.IsNullOrWhiteSpace(_cfgDirectory)) {
-                    _cfgDirectory = Path.GetDirectoryName(AssemblyUtils.GetBaseDirectory());
+                    _cfgDirectory = Path.Combine(Path.GetDirectoryName(AssemblyUtils.GetBaseDirectory()),"hdns-config");
 
                     if (string.IsNullOrWhiteSpace(_cfgDirectory)) _cfgDirectory = AssemblyUtils.GetBaseDirectory();
                 }

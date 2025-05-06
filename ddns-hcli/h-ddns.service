@@ -1,0 +1,13 @@
+[Unit]
+Description=Podman container service for Haley Dynamic DNS
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/podman run --rm -v /var/log/hlog:/var/log/hlog -v /usr/share/hdns:/usr/share/hdns hdns
+Restart=always
+RestartSec=10 #delayed start
+
+[Install]
+WantedBy=default.target

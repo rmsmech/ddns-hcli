@@ -1,10 +1,11 @@
 using hdns;
 using Haley.Log;
+using Haley.Utils;
 using Microsoft.Extensions.Logging;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var cfgBuilder = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json");
+var cfgBuilder = new ConfigurationBuilder().SetBasePath(AssemblyUtils.GetBaseDirectory()).AddJsonFile("appsettings.json");
 var cfg = cfgBuilder.Build();
 builder.Services.AddSingleton<IConfigurationRoot>(cfg);
 
