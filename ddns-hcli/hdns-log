@@ -1,0 +1,8 @@
+/var/log/hlog/hdns.txt {
+        daily
+        rotate 3
+        compress
+        missingok
+        notifempty
+        create 640 root
+}

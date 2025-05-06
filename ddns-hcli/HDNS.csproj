@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-ddns_hcli-a94c8c36-220f-4093-bf7e-cef1ccbbc42a</UserSecretsId>
-    <RootNamespace>ddns_hcli</RootNamespace>
+    <UserSecretsId>dotnet-hdns-a94c8c36-220f-4093-bf7e-cef1ccbbc42a</UserSecretsId>
+    <RootNamespace>hdns</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -42,7 +42,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="ddns-hcli.service">
+    <None Update="hdns.service">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="hdns-log">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

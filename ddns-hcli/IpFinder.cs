@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace ddns_hcli {
+namespace hdns {
     public class IpFinder {
         [JsonPropertyName("url")]
         public string URL { get; set; }

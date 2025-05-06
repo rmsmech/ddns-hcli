@@ -10,7 +10,7 @@ using Haley.Log;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 
-namespace ddns_hcli {
+namespace hdns {
     public class Worker : BackgroundService {
         private readonly ILogger _logger;
         const string _cfgFileName = "ddns.conf";
@@ -45,8 +45,8 @@ namespace ddns_hcli {
                 //_sleepTime = (config.GetValue<int>("WorkerSleepTime")) * 1000;
                 //_cfgDirectory = config.GetValue<string>("CfgDirectory");
 
-                _sleepTime = (cfgRoot.GetSection("WorkerSleepTime").Get<int>()) * 1000;
-                _cfgDirectory = cfgRoot.GetSection("CfgDirectory")?.Get<string>();
+                _sleepTime = Globals.WorkerSleepTime * 1000;
+                _cfgDirectory = Globals.CfgDirectory;
 
                 if (string.IsNullOrWhiteSpace(_cfgDirectory)) {
                     _cfgDirectory = Path.GetDirectoryName(AssemblyUtils.GetBaseDirectory());
@@ -64,7 +64,7 @@ namespace ddns_hcli {
                     //Then try to export the file from embedded data.
                     _logger?.LogInformation("Configuration doesn't exists. Exporting the default file.");
                     //var names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
-                    var res = ResourceUtils.GetEmbeddedResource($@"ddns_hcli.{_cfgFileName}", Assembly.GetExecutingAssembly());
+                    var res = ResourceUtils.GetEmbeddedResource($@"hdns.{_cfgFileName}", Assembly.GetExecutingAssembly());
                     using (var fs = new FileStream(_cfgFilePath, FileMode.Create)) {
                         fs.Write(res);
                         fs.Close();
@@ -75,7 +75,7 @@ namespace ddns_hcli {
                     //Then try to export the file from embedded data.
                     _logger?.LogInformation("Configuration doesn't exists. Exporting the default file.");
                     //var names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
-                    var res = ResourceUtils.GetEmbeddedResource($@"ddns_hcli.{_ipfFileName}", Assembly.GetExecutingAssembly());
+                    var res = ResourceUtils.GetEmbeddedResource($@"hdns.{_ipfFileName}", Assembly.GetExecutingAssembly());
                     using (var fs = new FileStream(_ipfFilePath, FileMode.Create)) {
                         fs.Write(res);
                         fs.Close();

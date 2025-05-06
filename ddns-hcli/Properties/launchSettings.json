@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "ddns_hcli": {
+    "hdns": {
       "commandName": "Project",
       "commandLineArgs": "-v",
       "environmentVariables": {

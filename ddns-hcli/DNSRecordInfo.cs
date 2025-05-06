@@ -5,10 +5,10 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace ddns_hcli {
+namespace hdns {
     public class DNSRecordInfo {
         [JsonPropertyName("type")]
-        public string Type { get; set; } = "A"; //Default record type.dhanu
+        public string Type { get; set; } = "A"; //Default record type.
         [JsonPropertyName("name")]
         public string Name { get; set; }
         [JsonPropertyName("proxied")] 

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34723.18
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ddns-hcli", "ddns-hcli.csproj", "{17D879F0-F04E-4D70-ABB2-FD3FA1B03190}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HDNS", "HDNS.csproj", "{17D879F0-F04E-4D70-ABB2-FD3FA1B03190}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HaleyRest", "..\..\..\HaleyProject\HaleyRest\HaleyRest\HaleyRest.csproj", "{9CEE0A2A-4A62-4FA1-9BB4-A1C97BAFDEC4}"
 EndProject
