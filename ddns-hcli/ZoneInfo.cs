@@ -18,5 +18,8 @@ namespace hdns {
             if (string.IsNullOrWhiteSpace(RecordsRaw)) return;
             RecordsArray = RecordsRaw.Split(new char[] { ',' }); //Comma separated.
         }
+        internal bool IsInvalid() {
+            return string.IsNullOrWhiteSpace(Id) || string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(RecordsRaw);
+        }
     }
 }

@@ -73,7 +73,7 @@ namespace hdns {
 
                 if (!File.Exists(_ipfFilePath)) {
                     //Then try to export the file from embedded data.
-                    _logger?.LogInformation("Configuration doesn't exists. Exporting the default file.");
+                    _logger?.LogInformation("IP Finder file doesn't exist. Exporting the default file.");
                     //var names = Assembly.GetExecutingAssembly().GetManifestResourceNames();
                     var res = ResourceUtils.GetEmbeddedResource($@"hdns.{_ipfFileName}", Assembly.GetExecutingAssembly());
                     using (var fs = new FileStream(_ipfFilePath, FileMode.Create)) {
@@ -89,6 +89,9 @@ namespace hdns {
                 _ipfList = JsonSerializer.Deserialize<IpFinder[]>(File.ReadAllText(_ipfFilePath))?.ToList();
                 _ipfCount = _ipfList?.Count ?? 0; //total list of IPF
                 _cfgList.ForEach(p => p.ParseRecords()); //to fetch the records as an array.
+                if (_cfgList.Any(p=> p.IsInvalid())) {
+                    throw new ArgumentException($@"DDNS Conf is not correct. Zone ID, Token  & Records are mandatory fields.");
+                }
                 _logger?.LogInformation("Initialization Complete");
 
             } catch (Exception ex) {
