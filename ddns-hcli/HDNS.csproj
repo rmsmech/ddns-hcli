@@ -45,6 +45,9 @@
     <None Update="ContainerFile">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="entrypoint.sh">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="hdns.service">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
