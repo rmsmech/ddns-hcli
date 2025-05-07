@@ -7,8 +7,10 @@ RUN mkdir -p /app/hdns
 # Set work directory
 WORKDIR /app
 
-# Copy the application files
+# Copy the application files & the service file for reference (dont' copy the configuration files as it might overwrite the user defined files)
 COPY ./ /app/hdns
+COPY ./hddns.service /usr/share/hdns/
+COPY ./hlog /usr/share/hdns/
 
 # Set environment variables
 ENV env_hdns_logdir="/var/log/hlog"

@@ -5,7 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman run --rm -v /var/log/hlog:/var/log/hlog -v /usr/share/hdns:/usr/share/hdns hdns
+ExecStart=/usr/bin/podman run --rm -v /var/log/hlog:/var/log/hlog:Z -v /usr/share/hdns:/usr/share/hdns:Z docker.io/rmsofficial/hdns:latest
+
 Restart=always
 RestartSec=10 #delayed start
 
