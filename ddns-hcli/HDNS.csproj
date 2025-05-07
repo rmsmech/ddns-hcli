@@ -42,6 +42,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="ContainerFile">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="hddns.service">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
