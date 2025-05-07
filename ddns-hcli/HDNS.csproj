@@ -42,13 +42,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="h-ddns.service">
+    <None Update="hddns.service">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="h-ddns.service-direct">
+    <None Update="hddns.service-direct">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="h-ddns">
+    <None Update="hlog">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
