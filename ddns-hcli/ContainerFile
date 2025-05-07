@@ -1,0 +1,22 @@
+﻿# Get low size alpine image for dotnet runtime
+FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine
+
+# Make directory for storing the files
+RUN mkdir -p /app/hdns
+
+# Set work directory
+WORKDIR /app
+
+# Copy the application files
+COPY ./ /app/hdns
+
+# Set environment variables
+ENV env_hdns_logdir="/var/log/hlog"
+ENV env_hdns_cfgdir="/usr/share/hdns"
+
+#Define volumes (not actual mounting.. just defining)
+VOLUME /usr/share/hdns
+VOLUME /var/log/hlog
+
+# Define entrypoint
+ENTRYPOINT ["dotnet","/app/hdns/HDNS.dll"]
