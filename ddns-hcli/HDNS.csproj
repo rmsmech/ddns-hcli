@@ -45,10 +45,10 @@
     <None Update="ContainerFile">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="hddns.service">
+    <None Update="hdns.service">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="hddns.service-direct">
+    <None Update="ddns.service-direct">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="hlog">
